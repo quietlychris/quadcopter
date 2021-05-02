@@ -1,0 +1,20 @@
+[package]
+name = "quadcopter"
+version = "0.1.0"
+authors = ["Christopher Moran <christopher.and.moran@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# PWM
+sysfs-pwm = {git = "https://github.com/rust-embedded/rust-sysfs-pwm.git", branch = "master"}
+simple-signal = "1.1.1"
+# BNO055 IMU
+i2cdev = "0.4.4"
+linux-embedded-hal = "0.3"
+embedded-hal = "1.0.0-alpha.4"
+mint = "0.5.5"
+bno055 = "0.3.1"
+# BMP280 Altimeter
+bmp280 = "0.4"
