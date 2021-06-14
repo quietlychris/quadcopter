@@ -8,10 +8,7 @@ use std::thread;
 use std::time::Duration;
 use std::time::Instant;
 
-mod pid;
-use pid::*;
-mod motor;
-use motor::*;
+pub use quadcopter::*;
 
 // For terminating early
 use simple_signal::{self, Signal};
@@ -34,32 +31,36 @@ fn main() {
     let (tx_imu, rx_imu) = mpsc::channel();
     let (tx_stop_imu, rx_stop_imu) = mpsc::channel(); // Sending a stop command across threads
 
+    let mut altitude: f32;
+    let (tx_altimeter, rx_altimeter) = mpsc::channel();
+    let (tx_stop_altimeter, rx_stop_altimeter) = mpsc::channel(); // Sending a stop command across threads
+
     // Start pulses at 1_590_000 and 1_360_000
     // Instantiate Motor A
     let pwm_a = Pwm::new(0, 0).unwrap();
     let mut esc_a: ESCParamsNs = ESCParamsNs::default();
-    esc_a.set_pulse_flight(1_590_000);
+    esc_a.set_pulse_flight(1_330_000);
     let pid_a = PIDController::new(50.0, 0.05, 0.8);
     let mut motor_a = Motor::new(pwm_a, esc_a, pid_a);
 
     // Instantiate Motor B
     let pwm_b = Pwm::new(0, 1).unwrap();
     let mut esc_b: ESCParamsNs = ESCParamsNs::default();
-    esc_b.set_pulse_flight(1_360_000);
+    esc_b.set_pulse_flight(1_620_000);
     let pid_b = PIDController::new(50.0, 0.05, 0.8);
     let mut motor_b = Motor::new(pwm_b, esc_b, pid_b);
 
     // Instantiate Motor C
     let pwm_c = Pwm::new(4, 0).unwrap();
     let mut esc_c: ESCParamsNs = ESCParamsNs::default();
-    esc_c.set_pulse_flight(1_360_000);
+    esc_c.set_pulse_flight(1_620_000);
     let pid_c = PIDController::new(60.0, 0.005, 2.2);
     let mut motor_c = Motor::new(pwm_c, esc_c, pid_c);
 
     // Instantiate Motor D
     let pwm_d = Pwm::new(4, 1).unwrap();
     let mut esc_d: ESCParamsNs = ESCParamsNs::default();
-    esc_d.set_pulse_flight(1_590_000);
+    esc_d.set_pulse_flight(1_620_000);
     let pid_d = PIDController::new(50.0, 0.05, 1.6);
     let mut motor_d = Motor::new(pwm_d, esc_d, pid_d);
 
@@ -103,24 +104,54 @@ fn main() {
         }
     });
 
+    let thread_altimeter = thread::spawn(move || {
+        let mut altimeter = Bmp280Builder::new()
+            .path("/dev/i2c-1")
+            .address(0x77)
+            .build()
+            .expect("Failed to build device");
+
+        altimeter.zero().expect("Device failed to zero");
+
+        loop {
+            match altimeter.altitude_m() {
+                Ok(altitude) => {
+                    tx_altimeter.send(altitude).unwrap();
+                    // println!("count: {} at {}",count,now.elapsed().as_millis());
+                }
+                Err(e) => {
+                    eprintln!("{:?}", e);
+                }
+            }
+
+            match rx_stop_altimeter.try_recv() {
+                Ok(val) => {
+                    println!("received a {} on the stop loop", val);
+                    break;
+                }
+                _ => continue,
+            }
+        }
+    });
+
     // Init and get motors up to appx. flight
     motor_a.init().unwrap();
-    thread::sleep(Duration::from_millis(100));
+    thread::sleep(Duration::from_millis(1000));
     motor_b.init().unwrap();
-    thread::sleep(Duration::from_millis(100));
+    thread::sleep(Duration::from_millis(1000));
     motor_c.init().unwrap();
-    thread::sleep(Duration::from_millis(100));
+    thread::sleep(Duration::from_millis(1000));
     motor_d.init().unwrap();
+    thread::sleep(Duration::from_millis(1000));
 
-    
     motor_a.get_to_flight(10).unwrap();
     thread::sleep(Duration::from_millis(100));
-    motor_b.get_to_flight(10).unwrap();
-    thread::sleep(Duration::from_millis(100));
+    //motor_b.get_to_flight(10).unwrap();
+    //thread::sleep(Duration::from_millis(100));
     motor_c.get_to_flight(10).unwrap();
     thread::sleep(Duration::from_millis(100));
-    motor_d.get_to_flight(10).unwrap();
-    
+    //motor_d.get_to_flight(10).unwrap();
+    //thread::sleep(Duration::from_millis(100));
 
     while running.load(Ordering::SeqCst) {
         match rx_imu.try_recv() {
@@ -133,19 +164,28 @@ fn main() {
             }
         }
 
-        
-        motor_a.update_pid_actual(-angles.b).unwrap();
+        match rx_altimeter.try_recv() {
+            Ok(val) => {
+                altitude = val;
+                println!("Altitude: {:.2?}", altitude);
+            }
+            Err(_e) => {
+                // println!("{:?}", e);
+            }
+        }
+
+        // Currently working with AC/BD motor same-side,opposite rotation pairs
+        motor_a.update_pid_actual(angles.a).unwrap();
         motor_a.update_control_signal().unwrap();
 
-        motor_b.update_pid_actual(-angles.b).unwrap();
-        motor_b.update_control_signal().unwrap();
-        
-        motor_c.update_pid_actual(angles.a).unwrap();
+        motor_c.update_pid_actual(-angles.a).unwrap();
         motor_c.update_control_signal().unwrap();
 
-        motor_d.update_pid_actual(angles.a).unwrap();
-        motor_d.update_control_signal().unwrap();
+        //motor_b.update_pid_actual(-angles.b).unwrap();
+        //motor_b.update_control_signal().unwrap();
 
+        //motor_d.update_pid_actual(angles.a).unwrap();
+        //motor_d.update_control_signal().unwrap();
     }
 
     // Shutdown all motors
@@ -153,8 +193,12 @@ fn main() {
     motor_b.shutdown().unwrap();
     motor_c.shutdown().unwrap();
     motor_d.shutdown().unwrap();
-    
+
     // Stop the IMU thread and join it to main before exiting
     tx_stop_imu.send(false).unwrap();
     thread_imu.join().expect("Error joining IMU thread");
+    tx_stop_altimeter.send(false).unwrap();
+    thread_altimeter
+        .join()
+        .expect("Error joining altimeter thread");
 }
