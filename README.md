@@ -8,7 +8,6 @@ Many flight control systems are currently written on either bare metal or using 
 
 Notably, this idea was heavily explored by Anders Martenssson at the Blekinge Institute of Technology in their senior thesis [paper](https://www.diva-portal.org/smash/get/diva2:946992/FULLTEXT02.pdf), which seemed to indicate this approach could be relatively promising. 
 
-
 ### The hardware
 This is the hardware I'm currently using. Most of these components could feasibly be switched out with something else if necessary (which is sort of the point), but in general you can assume that these will work together. 
 
@@ -22,25 +21,27 @@ This is the hardware I'm currently using. Most of these components could feasibl
 
 - [BMP280 Altitude/Pressure Sensor](https://www.adafruit.com/product/2651)
     - Also runs over I2C using a Stemma QT connection
-    - It's not actively being using right, but I recently helped update this sensor's Rust crate to the `2018` edition, so it should be fairly easy to add using a thread similar to the one running the IMU once attitude stabilization gets finished. 
+    - Not that it particularly matters, but I recently helped update this sensor's Rust crate to the `2018` edition and should work out-of-the-box with an Odroid-C4
 
 - Blue Robotics [BasicESC](https://bluerobotics.com/store/thrusters/speed-controllers/besc30-r3/)
     - These ESCs are great because they don't require calibration, but instead have a defined PWM signal range running from 1100-1900 microseconds, with 1500 us being the neutral position. 
 
 - Brushless ESCs
-    - I used [these](https://smile.amazon.com/gp/product/B0796RK6VY/ref=ppx_yo_dt_b_asin_title_o05_s00?ie=UTF8&psc=1) ones from Crazepony because they were relatively cheap, but as far as I know, pretty much any other brushless motor should work as well (I've also tested it with the Blue Robotics T200 thruster). 
+    - I used [these](https://smile.amazon.com/gp/product/B0796RK6VY/ref=ppx_yo_dt_b_asin_title_o05_s00?ie=UTF8&psc=1) ones from Crazepony to start, but am currently working with a set of Holybro 2216 KV880v2 motors. 
 
-Plus things like screw terminals, plastic rotors, a WiFi adapter for the Odroid-C4, and a bunch of M2.5 stand-offs because my current chassis for this project is literally a bunch of glued-together cardboard. For the motor power, I'm using a 3S/30C LiPo battery using XT-60 connectors, which is actually pretty important--I'm registering somewhere between 1.5-2.0A per motor to get flight at the moment, which was more than my 5A benchtop power supply could produce, so I had switch over to a LiPo battery for development. 
+- Frame
+    - [Holybro S500](http://www.holybro.com/product/pixhawk4-s500-v2-kit/) frame, which I think is also sold by [ReadyToSky](https://smile.amazon.com/dp/B01N0AX1MZ/?coliid=I2FEQIGGD5136H&colid=2Y20EFE1AJ5HX&psc=1&ref_=lv_ov_lig_dp_it). This one's come in handy, because you can solder both the BasicESCs and the 5.5mm plug directly into the power/ground planes along with an XT-60 connector and run the entire thing off of a single 3S LiPo battery. 
+
+Plus things like screw terminals, plastic rotors, a WiFi adapter for the Odroid-C4. As mentioned, for the motor power, I'm using a 3S/30C LiPo battery using XT-60 connectors, which is actually pretty important--I'm registering somewhere between 1.5-2.0A per motor to get flight at the moment, which was more than my 5A benchtop power supply could produce, so I had switch over to a LiPo battery for development. 
+
+<div style="text-align: center;"><img src="quadcopter.jpg" alt="quadcopter" /></div>
+
 
 ### Current state
 
 Subsets of this code, with the described hardware have been proven to work on one and two-axis stabilization controls problems. In other words, a single motor/propeller on an unsupported lever arm can indefinitely maintain a level position with low oscillation. The same goes for an in-line pair of lift-producing motor on opposite sides of a pivot point. 
 
  I've also done some work with all four motors running, and holding a quadcopter chassis from the corner (I haven't finished the counter-rotation yet for the motors I've been using, so I can't let go entirely) the quadcopter is able to stay relatively level in plane with little input from my arm. When I kill the control signal, the chassis drops, so I believe it's safe to say that the attitude control system is at least close to working. 
-
-### TO-DO
-- [ ] Make sure motors are located in counter-rotating positions 
-- [ ] Add the BMP280 altimeter into the control loop 
 
 ### License
 This code is licensed under GPLv3
