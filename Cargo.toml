@@ -16,6 +16,6 @@ i2cdev = "0.4.4"
 linux-embedded-hal = "0.3"
 embedded-hal = "1.0.0-alpha.4"
 mint = "0.5.5"
-bno055 = "0.3.1"
+bno055 = "0.3.2"
 # BMP280 Altimeter
 bmp280 = "0.4"

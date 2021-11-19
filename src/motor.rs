@@ -17,7 +17,7 @@ pub struct ESCParamsNs {
 
 impl ESCParamsNs {
     pub fn default() -> Self {
-        let pulse_neutral = 1_510_000;
+        let pulse_neutral = 1_500_000;
         ESCParamsNs {
             period: 20_000_000,
             pulse_min: 1_200_000,
@@ -40,7 +40,7 @@ impl ESCParamsNs {
 pub struct Motor {
     pwm: Pwm,
     pub esc: ESCParamsNs,
-    pid: PIDController,
+    pub pid: PIDController,
 }
 
 impl Motor {
@@ -85,19 +85,13 @@ impl Motor {
 
     pub fn get_to_flight(&mut self, step_time_ms: u64) -> Result<(), Box<dyn Error>> {
         if self.esc.pulse_flight == self.esc.pulse_neutral {
-            panic!(
-                "Error: please set pulse_flight != pulse_neutral. Currently: {}",
-                self.esc.pulse_flight
-            );
+            panic!("Error: please set pulse_flight != pulse_neutral. Currently: {}", self.esc.pulse_flight);
         }
 
         match self.esc.pulse_flight < self.esc.pulse_neutral {
             true => {
                 println!("Motor direction: CCW");
-                for step in (self.esc.pulse_flight..self.esc.pulse_neutral)
-                    .step_by(1000)
-                    .rev()
-                {
+                for step in (self.esc.pulse_flight..self.esc.pulse_neutral).step_by(100).rev() {
                     println!("{}", step);
                     self.pwm.set_duty_cycle_ns(step)?;
                     thread::sleep(Duration::from_millis(step_time_ms));
@@ -106,7 +100,7 @@ impl Motor {
             }
             false => {
                 println!("Motor direction: CC");
-                for step in (self.esc.pulse_neutral..self.esc.pulse_flight).step_by(1000) {
+                for step in (self.esc.pulse_neutral..self.esc.pulse_flight).step_by(100) {
                     println!("{}", step);
                     self.pwm.set_duty_cycle_ns(step)?;
                     thread::sleep(Duration::from_millis(step_time_ms));

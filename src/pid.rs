@@ -4,7 +4,7 @@
 #[derive(Debug, Clone)]
 pub struct PIDController {
     setpoint: f32,
-    actual: f32,
+    pub actual: f32,
     kp: f32,
     ki: f32,
     kd: f32,
